@@ -1,10 +1,8 @@
-## Welcome to GitHub Pages
+## The Blender Game Engine is a Slow Mess, But I'm Not Giving Up On It
 
-You can use the [editor on GitHub](https://github.com/rocketbees/senior-research/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+Blender is a free and open source computer graphics software that features an integrated game engine. This game engine currently does not perform with the same standard of efficiency as comparable commercial game engines. The objective of this project is to develop a method to optimize the Blender game engine in a way that will improve graphical performance, as well as investigate current research into this endevour. Optimization of the game engine would be a valuable addition to the software and make Blender a more viable software option for developers on a limited budget. 
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
-
-### Markdown
+### I am keeping the rest of this information here for reference when I go back to add more to this page
 
 Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
 
