@@ -1,0 +1,114 @@
+// A majority of this code was sourced from https://learnopengl.com/Advanced-Lighting/Deferred-Shading
+
+
+unsigned int gBuffer;
+glGenFramebuffers(1, &gBuffer);
+glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+unsigned int gPosition, gNormal, gColorSpec;
+  
+// - position color buffer
+glGenTextures(1, &gPosition);
+glBindTexture(GL_TEXTURE_2D, gPosition);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
+  
+// - normal color buffer
+glGenTextures(1, &gNormal);
+glBindTexture(GL_TEXTURE_2D, gNormal);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGB, GL_FLOAT, NULL);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0);
+  
+// - color + specular color buffer
+glGenTextures(1, &gAlbedoSpec);
+glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gAlbedoSpec, 0);
+  
+// - tell OpenGL which color attachments we'll use (of this framebuffer) for rendering 
+unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1, GL_COLOR_ATTACHMENT2 };
+glDrawBuffers(3, attachments);
+  
+
+
+layout (location = 0) out vec3 gPosition;
+layout (location = 1) out vec3 gNormal;
+layout (location = 2) out vec4 gAlbedoSpec;
+
+in vec2 TexCoords;
+in vec3 FragPos;
+in vec3 Normal;
+
+uniform sampler2D texture_diffuse1;
+uniform sampler2D texture_specular1;
+
+void main()
+{    
+    // store the fragment position vector in the first gbuffer texture
+    gPosition = FragPos;
+    // also store the per-fragment normals into the gbuffer
+    gNormal = normalize(Normal);
+    // and the diffuse per-fragment color
+    gAlbedoSpec.rgb = texture(texture_diffuse1, TexCoords).rgb;
+    // store specular intensity in gAlbedoSpec's alpha component
+    gAlbedoSpec.a = texture(texture_specular1, TexCoords).r;
+} 
+
+
+glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+glActiveTexture(GL_TEXTURE0);
+glBindTexture(GL_TEXTURE_2D, gPosition);
+glActiveTexture(GL_TEXTURE1);
+glBindTexture(GL_TEXTURE_2D, gNormal);
+glActiveTexture(GL_TEXTURE2);
+glBindTexture(GL_TEXTURE_2D, gAlbedoSpec);
+// also send light relevant uniforms
+shaderLightingPass.use();
+SendAllLightUniformsToShader(shaderLightingPass);
+shaderLightingPass.setVec3("viewPos", camera.Position);
+RenderQuad(); 
+
+
+#version 330 core
+out vec4 FragColor;
+  
+in vec2 TexCoords;
+
+uniform sampler2D gPosition;
+uniform sampler2D gNormal;
+uniform sampler2D gAlbedoSpec;
+
+struct Light {
+    vec3 Position;
+    vec3 Color;
+};
+const int NR_LIGHTS = 32;
+uniform Light lights[NR_LIGHTS];
+uniform vec3 viewPos;
+
+void main()
+{             
+    // retrieve data from G-buffer
+    vec3 FragPos = texture(gPosition, TexCoords).rgb;
+    vec3 Normal = texture(gNormal, TexCoords).rgb;
+    vec3 Albedo = texture(gAlbedoSpec, TexCoords).rgb;
+    float Specular = texture(gAlbedoSpec, TexCoords).a;
+    
+    // then calculate lighting as usual
+    vec3 lighting = Albedo * 0.1; // hard-coded ambient component
+    vec3 viewDir = normalize(viewPos - FragPos);
+    for(int i = 0; i < NR_LIGHTS; ++i)
+    {
+        // diffuse
+        vec3 lightDir = normalize(lights[i].Position - FragPos);
+        vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Albedo * lights[i].Color;
+        lighting += diffuse;
+    }
+    
+    FragColor = vec4(lighting, 1.0);
+}  
